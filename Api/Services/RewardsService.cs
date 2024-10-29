@@ -34,24 +34,54 @@ public class RewardsService : IRewardsService
 
     public void CalculateRewards(User user)
     {
-        count++;
-        List<VisitedLocation> userLocations = user.VisitedLocations;
+        lock (user.UserLock)
+        {
+            List<VisitedLocation> userLocations = user.VisitedLocations;
+            List<Attraction> attractions = _gpsUtil.GetAttractions();
+
+            foreach (var visitedLocation in userLocations)
+            {
+                foreach (var attraction in attractions)
+                {
+                    if (!user.UserRewards.Any(r => r.Attraction.AttractionName == attraction.AttractionName))
+                    {
+                        if (NearAttraction(visitedLocation, attraction))
+                        {
+                            user.AddUserReward(new UserReward(visitedLocation, attraction, GetRewardPoints(attraction, user)));
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    public async Task CalculateRewardsAsync(User user)
+    {
+        // Créer une copie locale de VisitedLocations pour éviter les modifications concurrentes
+        var userLocations = user.VisitedLocations.ToList();
+
         List<Attraction> attractions = _gpsUtil.GetAttractions();
 
         foreach (var visitedLocation in userLocations)
         {
             foreach (var attraction in attractions)
             {
-                if (!user.UserRewards.Any(r => r.Attraction.AttractionName == attraction.AttractionName))
+                // Vérifie si la récompense pour cette attraction existe déjà
+                lock (user.UserLock) // Utiliser le verrou pour protéger les modifications de UserRewards
                 {
-                    if (NearAttraction(visitedLocation, attraction))
+                    if (!user.UserRewards.Any(r => r.Attraction.AttractionName == attraction.AttractionName))
                     {
-                        user.AddUserReward(new UserReward(visitedLocation, attraction, GetRewardPoints(attraction, user)));
+                        if (NearAttraction(visitedLocation, attraction))
+                        {
+                            int rewardPoints = GetRewardPoints(attraction, user);
+                            user.AddUserReward(new UserReward(visitedLocation, attraction, rewardPoints));
+                        }
                     }
                 }
             }
         }
     }
+
 
     public bool IsWithinAttractionProximity(Attraction attraction, Locations location)
     {
@@ -64,10 +94,7 @@ public class RewardsService : IRewardsService
         return GetDistance(attraction, visitedLocation.Location) <= _proximityBuffer;
     }
 
-    private int GetRewardPoints(Attraction attraction, User user)
-    {
-        return _rewardsCentral.GetAttractionRewardPoints(attraction.AttractionId, user.UserId);
-    }
+   
 
     public double GetDistance(Locations loc1, Locations loc2)
     {
@@ -81,5 +108,10 @@ public class RewardsService : IRewardsService
 
         double nauticalMiles = 60.0 * angle * 180.0 / Math.PI;
         return StatuteMilesPerNauticalMile * nauticalMiles;
+    }
+
+    public int GetRewardPoints(Attraction attraction, User user)
+    {
+        return _rewardsCentral.GetAttractionRewardPoints(attraction.AttractionId, user.UserId);
     }
 }

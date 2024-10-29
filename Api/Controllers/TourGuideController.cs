@@ -24,20 +24,25 @@ public class TourGuideController : ControllerBase
         return Ok(location);
     }
 
-    // TODO: Change this method to no longer return a List of Attractions.
-    // Instead: Get the closest five tourist attractions to the user - no matter how far away they are.
-    // Return a new JSON object that contains:
-    // Name of Tourist attraction, 
-    // Tourist attractions lat/long, 
-    // The user's location lat/long, 
-    // The distance in miles between the user's location and each of the attractions.
-    // The reward points for visiting each Attraction.
-    //    Note: Attraction reward points can be gathered from RewardsCentral
+
     [HttpGet("getNearbyAttractions")]
-    public ActionResult<List<Attraction>> GetNearbyAttractions([FromQuery] string userName)
+    public ActionResult<List<object>> GetNearbyAttractions([FromQuery] string userName)
     {
-        var visitedLocation = _tourGuideService.GetUserLocation(GetUser(userName));
-        var attractions = _tourGuideService.GetNearByAttractions(visitedLocation);
+        var user = GetUser(userName);
+        var visitedLocation = _tourGuideService.GetUserLocation(user);
+
+        // Obtenez les 5 attractions les plus proches
+        var attractions = _tourGuideService.GetNearByAttractions(visitedLocation)
+            .Select(attraction => new
+            {
+                AttractionName = attraction.AttractionName,
+                AttractionLocation = new { attraction.Latitude, attraction.Longitude },
+                UserLocation = new { visitedLocation.Location.Latitude, visitedLocation.Location.Longitude },
+                Distance = _tourGuideService.GetDistance(attraction, visitedLocation.Location),
+                RewardPoints = _tourGuideService.GetRewardPoints(attraction, user)
+            })
+            .ToList();
+
         return Ok(attractions);
     }
 

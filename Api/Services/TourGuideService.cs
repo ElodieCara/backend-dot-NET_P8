@@ -46,7 +46,7 @@ public class TourGuideService : ITourGuideService
 
     public List<UserReward> GetUserRewards(User user)
     {
-        return user.UserRewards;
+        return user.UserRewards.ToList();
     }
 
     public VisitedLocation GetUserLocation(User user)
@@ -74,12 +74,13 @@ public class TourGuideService : ITourGuideService
 
     public List<Provider> GetTripDeals(User user)
     {
-        int cumulativeRewardPoints = user.UserRewards.Sum(i => i.RewardPoints);
-        List<Provider> providers = _tripPricer.GetPrice(TripPricerApiKey, user.UserId,
-            user.UserPreferences.NumberOfAdults, user.UserPreferences.NumberOfChildren,
-            user.UserPreferences.TripDuration, cumulativeRewardPoints);
-        user.TripDeals = providers;
-        return providers;
+       // Utilise .ToList() pour convertir ConcurrentBag en List temporaire
+    int cumulativeRewardPoints = user.UserRewards.ToList().Sum(i => i.RewardPoints);
+    List<Provider> providers = _tripPricer.GetPrice(TripPricerApiKey, user.UserId,
+        user.UserPreferences.NumberOfAdults, user.UserPreferences.NumberOfChildren,
+        user.UserPreferences.TripDuration, cumulativeRewardPoints);
+    user.TripDeals = providers;
+    return providers;
     }
 
     public VisitedLocation TrackUserLocation(User user)
@@ -101,7 +102,10 @@ public class TourGuideService : ITourGuideService
             }
         }
 
-        return nearbyAttractions;
+        return _gpsUtil.GetAttractions()
+         .OrderBy(attraction => GetDistance(attraction, visitedLocation.Location))
+         .Take(5)
+         .ToList();
     }
 
     private void AddShutDownHook()
@@ -114,6 +118,19 @@ public class TourGuideService : ITourGuideService
     * Methods Below: For Internal Testing
     * 
     **********************************************************************************/
+    public double GetDistance(Attraction attraction, Locations location)
+    {
+        double lat1 = Math.PI * attraction.Latitude / 180.0;
+        double lon1 = Math.PI * attraction.Longitude / 180.0;
+        double lat2 = Math.PI * location.Latitude / 180.0;
+        double lon2 = Math.PI * location.Longitude / 180.0;
+
+        double angle = Math.Acos(Math.Sin(lat1) * Math.Sin(lat2)
+                                + Math.Cos(lat1) * Math.Cos(lat2) * Math.Cos(lon1 - lon2));
+
+        double nauticalMiles = 60.0 * angle * 180.0 / Math.PI;
+        return nauticalMiles * 1.15077945; // Conversion en miles terrestres
+    }
 
     private void InitializeInternalUsers()
     {
@@ -153,4 +170,10 @@ public class TourGuideService : ITourGuideService
     {
         return DateTime.UtcNow.AddDays(-new Random().Next(30));
     }
+
+    public int GetRewardPoints(Attraction attraction, User user)
+    {
+        return _rewardsService.GetRewardPoints(attraction, user);
+    }
+
 }
