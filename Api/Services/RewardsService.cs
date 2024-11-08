@@ -36,18 +36,23 @@ public class RewardsService : IRewardsService
     {
         lock (user.UserLock)
         {
-            List<VisitedLocation> userLocations = user.VisitedLocations;
+            List<VisitedLocation> userLocations = user.VisitedLocations.ToList();
             List<Attraction> attractions = _gpsUtil.GetAttractions();
+
+            // Créer une copie de UserRewards pour éviter les exceptions lors de l'énumération
+            var userRewardsCopy = user.UserRewards.ToList();
 
             foreach (var visitedLocation in userLocations)
             {
                 foreach (var attraction in attractions)
                 {
-                    if (!user.UserRewards.Any(r => r.Attraction.AttractionName == attraction.AttractionName))
+                    // Vérifie l'existence de la récompense dans la copie
+                    if (!userRewardsCopy.Any(r => r.Attraction.AttractionName == attraction.AttractionName))
                     {
                         if (NearAttraction(visitedLocation, attraction))
                         {
-                            user.AddUserReward(new UserReward(visitedLocation, attraction, GetRewardPoints(attraction, user)));
+                            int rewardPoints = GetRewardPoints(attraction, user);
+                            user.AddUserReward(new UserReward(visitedLocation, attraction, rewardPoints));
                         }
                     }
                 }
@@ -57,17 +62,17 @@ public class RewardsService : IRewardsService
 
     public async Task CalculateRewardsAsync(User user)
     {
-        // Créer une copie locale de VisitedLocations pour éviter les modifications concurrentes
-        var userLocations = user.VisitedLocations.ToList();
-
-        List<Attraction> attractions = _gpsUtil.GetAttractions();
-
-        foreach (var visitedLocation in userLocations)
+        // Utilise Task.Run pour lancer la méthode sur un thread d'arrière-plan
+    await Task.Run(() =>
+    {
+        lock (user.UserLock)
         {
-            foreach (var attraction in attractions)
+            List<VisitedLocation> userLocations = user.VisitedLocations.ToList();
+            List<Attraction> attractions = _gpsUtil.GetAttractions();
+
+            foreach (var visitedLocation in userLocations)
             {
-                // Vérifie si la récompense pour cette attraction existe déjà
-                lock (user.UserLock) // Utiliser le verrou pour protéger les modifications de UserRewards
+                foreach (var attraction in attractions)
                 {
                     if (!user.UserRewards.Any(r => r.Attraction.AttractionName == attraction.AttractionName))
                     {
@@ -80,7 +85,8 @@ public class RewardsService : IRewardsService
                 }
             }
         }
-    }
+    });
+}
 
 
     public bool IsWithinAttractionProximity(Attraction attraction, Locations location)

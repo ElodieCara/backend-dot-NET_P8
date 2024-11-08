@@ -88,15 +88,27 @@ namespace TourGuideTest
         [Fact]
         public void GetNearbyAttractions()
         {
+            // Arrange
             _fixture.Initialize(0);
             var user = new User(Guid.NewGuid(), "jon", "000", "jon@tourGuide.com");
             var visitedLocation = _fixture.TourGuideService.TrackUserLocation(user);
 
+            // Act
             List<Attraction> attractions = _fixture.TourGuideService.GetNearByAttractions(visitedLocation);
 
+            // Assert
             _fixture.TourGuideService.Tracker.StopTracking();
 
+            // Vérifie que le nombre d'attractions retournées est de 5
             Assert.Equal(5, attractions.Count);
+
+            // Vérifie que les attractions sont triées par ordre croissant de distance
+            for (int i = 0; i < attractions.Count - 1; i++)
+            {
+                double distanceCurrent = _fixture.TourGuideService.GetDistance(attractions[i], visitedLocation.Location);
+                double distanceNext = _fixture.TourGuideService.GetDistance(attractions[i + 1], visitedLocation.Location);
+                Assert.True(distanceCurrent <= distanceNext, "Les attractions ne sont pas triées par ordre croissant de distance.");
+            }
         }
 
         [Fact]
