@@ -31,7 +31,7 @@ public class TourGuideService : ITourGuideService
         CultureInfo.CurrentCulture = new CultureInfo("en-US");
 
         if (_testMode)
-        {
+        {            
             _logger.LogInformation("TestMode enabled");
             _logger.LogDebug("Initializing users");
             InitializeInternalUsers();
@@ -75,12 +75,12 @@ public class TourGuideService : ITourGuideService
     public List<Provider> GetTripDeals(User user)
     {
        // Utilise .ToList() pour convertir ConcurrentBag en List temporaire
-    int cumulativeRewardPoints = user.UserRewards.ToList().Sum(i => i.RewardPoints);
-    List<Provider> providers = _tripPricer.GetPrice(TripPricerApiKey, user.UserId,
-        user.UserPreferences.NumberOfAdults, user.UserPreferences.NumberOfChildren,
-        user.UserPreferences.TripDuration, cumulativeRewardPoints);
-    user.TripDeals = providers;
-    return providers;
+        int cumulativeRewardPoints = user.UserRewards.ToList().Sum(i => i.RewardPoints);
+        List<Provider> providers = _tripPricer.GetPrice(TripPricerApiKey, user.UserId,
+            user.UserPreferences.NumberOfAdults, user.UserPreferences.NumberOfChildren,
+            user.UserPreferences.TripDuration, cumulativeRewardPoints);
+        user.TripDeals = providers;
+        return providers;
     }
 
     public VisitedLocation TrackUserLocation(User user)
@@ -101,7 +101,7 @@ public class TourGuideService : ITourGuideService
                 nearbyAttractions.Add(attraction);
             }
         }
-
+        
         return _gpsUtil.GetAttractions()
          .OrderBy(attraction => GetDistance(attraction, visitedLocation.Location))
          .Take(5)
@@ -113,12 +113,7 @@ public class TourGuideService : ITourGuideService
         AppDomain.CurrentDomain.ProcessExit += (sender, e) => Tracker.StopTracking();
     }
 
-    /**********************************************************************************
-    * 
-    * Methods Below: For Internal Testing
-    * 
-    **********************************************************************************/
-    public double GetDistance(Attraction attraction, Locations location)
+     public double GetDistance(Attraction attraction, Locations location)
     {
         double lat1 = Math.PI * attraction.Latitude / 180.0;
         double lon1 = Math.PI * attraction.Longitude / 180.0;
@@ -132,6 +127,13 @@ public class TourGuideService : ITourGuideService
         return nauticalMiles * 1.15077945; // Conversion en miles terrestres
     }
 
+
+    /**********************************************************************************
+    * 
+    * Methods Below: For Internal Testing
+    * 
+    **********************************************************************************/
+   
     private void InitializeInternalUsers()
     {
         for (int i = 0; i < InternalTestHelper.GetInternalUserNumber(); i++)
@@ -153,9 +155,7 @@ public class TourGuideService : ITourGuideService
             user.AddToVisitedLocations(visitedLocation);
         }
     }
-
-    private static readonly Random random = new Random();
-
+   
     private double GenerateRandomLongitude()
     {
         return new Random().NextDouble() * (180 - (-180)) + (-180);
