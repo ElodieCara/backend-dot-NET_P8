@@ -22,11 +22,11 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore
 
-    - name: Run tests
-      run: dotnet test --configuration Release --no-restore --logger trx
-
     - name: Build
-      run: dotnet build --configuration Release --no-restore   
+      run: dotnet build --configuration Release --no-restore  
+
+    - name: Run tests
+      run: dotnet test --configuration Release --no-restore --logger trx     
 
     # Optionally: Collect test artifacts
     - name: Upload test results
